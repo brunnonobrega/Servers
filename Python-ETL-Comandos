@@ -1,0 +1,89 @@
+import pandas as pd
+
+df = pd.read_csv("ocorrencia_2010_2020.csv", sep=";", parse_dates=['ocorrencia_dia'], dayfirst=True)
+df.head()
+
+df.loc[1,'ocorrencia_cidade']
+df.loc[1:3]
+df.loc[[10,40]]
+df.loc[:,'ocorrencia_cidade']
+
+df.codigo_ocorrencia.is_unique
+df.loc[df.ocorrencia_uf == 'SP', ['ocorrencia_classificacao']] = 'GRAVE'
+df.loc[df.ocorrencia_uf == 'SP']
+df.loc[df.ocorrencia_aerodromo == '****', ['ocorrencia_aerodromo']] = pd.NA
+
+df.replace(['**','###!','####','****','*****','NULL'], pd.NA, inplace=True)
+df.replace([10], pd.NA, inplace=True)
+
+df.fillna(value={'total_recomendacoes':10}, inplace=True)
+df.isna().sum()
+df.isnull().sum()
+
+df.fillna(10, inplace=True)
+
+df['total_recomendacoes_bkp'] = df.total_recomendacoes
+df.drop(['total_recomendacoes_bkp'], axis=1, inplace=True)
+df.dropna()
+df.dropna(subset=['ocorrencia_uf'])
+df.drop_duplicates(inplace=True)
+
+
+valores_ausentes = ['**','###!','####','****','*****','NULL']
+df = pd.read_csv("ocorrencia_2010_2020.csv", sep=";", parse_dates=['ocorrencia_dia'], dayfirst=True, na_values=valores_ausentes)
+
+df.iloc[1]
+df.iloc[-1]
+df.iloc[10:15]
+
+
+############### FILTRO ################
+
+filtro = df.ocorrencia_uf.isnull()
+df.loc[filtro]
+
+#ocorrências com mais de 10 recomendações
+filtro = df.total_recomendacoes > 10
+df.loc[filtro]
+
+df.loc[filtro, ['ocorrencia_cidade', 'total_recomendacoes']]
+
+#ocorrências cuja classificação == INCIDENTE GRAVE e o estado == SP
+filtro1 = df.ocorrencia_classificacao == 'INCIDENTE GRAVE'
+filtro2 = df.ocorrencia_uf == 'SP'
+df.loc[filtro1 & filtro2]
+
+
+#ocorrências do ano de 2015 e mês 12 e dias entre 3 e 8
+filtro_ano = df.ocorrencia_dia.dt.year == 2015
+filtro_mes = df.ocorrencia_dia.dt.month == 12
+filtro_dia_inicio = df.ocorrencia_dia.dt.day > 2 
+filtro_dia_fim = df.ocorrencia_dia.dt.day < 9
+df.loc[filtro_ano & filtro_mes & filtro_dia_inicio & filtro_dia_fim]
+
+df['ocorrencia_dia_hora'] = pd.to_datetime(df.ocorrencia_dia.astype(str) + ' '  + df.ocorrencia_hora)
+
+filtro1 = df.ocorrencia_dia_hora >= '2015-12-03 11:00:00'
+filtro2 = df.ocorrencia_dia_hora <= '2015-12-08 14:30:00'
+df.loc[filtro1 & filtro2]
+
+#################### Esquema - Transformação #####################
+import pandera as pa
+
+schema = pa.DataFrameSchema(
+    columns = {
+        "codigo_ocorrencia": pa.Column(pa.Int),
+        "codigo_ocorrencia2": pa.Column(pa.Int),
+        "ocorrencia_classificacao": pa.Column(pa.String),
+        "ocorrencia_cidade": pa.Column(pa.String),
+        "ocorrencia_uf": pa.Column(pa.String, pa.Check.str_length(2,2)),
+        "ocorrencia_aerodromo": pa.Column(pa.String),
+        "ocorrencia_dia": pa.Column(pa.DateTime),
+        "ocorrencia_hora": pa.Column(pa.String, pa.Check.str_matches(r'^([0-1]?[0-9]|[2][0-3]):([0-5][0-9])(:[0-5][0-9])?$'), nullable=True),
+        "total_recomendacoes": pa.Column(pa.Int)   
+    }
+)
+schema.validate(df)
+df.dtypes
+
+################################################
